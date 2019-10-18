@@ -145,13 +145,17 @@ size_t HITFields::get_index(size_t nodeid)
     const size_t nxny = (nx + 1) * (ny + 1);
     const size_t nx1 = (nx + 1);
 
-    const size_t iz = ((nodeid - 1) / nxny) % nz;
-    nodeid %= nxny;
+    size_t orig_nd = nodeid;
 
+    const size_t iz = ((nodeid - 1) / nxny) % nz;
+
+    nodeid = (nodeid - 1) % nxny;
     const size_t iy = (nodeid / nx1) % ny;
     const size_t ix = nodeid % nx1 % nx;
 
-    return (iz * (nx * ny) + iy * nx + ix);
+    size_t ind = (iz * (nx * ny) + iy * nx + ix);
+
+    return ind;
 }
 
 }  // nalu
