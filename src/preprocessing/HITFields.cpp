@@ -62,8 +62,20 @@ void HITFields::load(const YAML::Node& node)
 
     // Get the HIT filename
     hit_filename_ = node["hit_file"].as<std::string>();
+    // Get the dimensions of data set
+    hit_file_dims_ = node["hit_file_dims"].as<std::vector<int>>();
     // Get the mesh dimensions
-    hit_mesh_dims_ = node["hit_dims"].as<std::vector<int>>();
+    hit_mesh_dims_ = node["hit_mesh_dims"].as<std::vector<int>>();
+
+    // ensure we are periodic in each direction
+    if( hit_mesh_dims_[0] % hit_file_dims_[0] != 0 )
+      throw std::runtime_error("Dimension of mesh along x is not a multiple of data mesh");
+
+    if( hit_mesh_dims_[1] % hit_file_dims_[1] != 0 )
+      throw std::runtime_error("Dimension of mesh along y is not a multiple of data mesh");
+
+    if( hit_mesh_dims_[2] % hit_file_dims_[2] != 0 )
+      throw std::runtime_error("Dimension of mesh along z is not a multiple of data mesh");
 }
 
 void HITFields::initialize()
@@ -89,9 +101,9 @@ void HITFields::run()
     auto& meta = mesh_.meta();
     auto& bulk = mesh_.bulk();
     const int nDim = meta.spatial_dimension();
-    const int nx = hit_mesh_dims_[0];
-    const int ny = hit_mesh_dims_[1];
-    const int nz = hit_mesh_dims_[2];
+    const int nx = hit_file_dims_[0];
+    const int ny = hit_file_dims_[1];
+    const int nz = hit_file_dims_[2];
 
     VectorFieldType* velocity = meta.get_field<VectorFieldType>(
         stk::topology::NODE_RANK, "velocity");
@@ -138,22 +150,32 @@ void HITFields::run()
 
 size_t HITFields::get_index(size_t nodeid)
 {
-    const size_t nx = hit_mesh_dims_[0];
-    const size_t ny = hit_mesh_dims_[1];
-    const size_t nz = hit_mesh_dims_[2];
+    // logic here assumes that data is periodic every
+    // n*_f nodes.
 
-    const size_t nxny = (nx + 1) * (ny + 1);
-    const size_t nx1 = (nx + 1);
+    // number of elements along each direction in file
+    // these dimensions determine the periodicity of solution
+    // file is cell-centered
+    const size_t nx_f = hit_file_dims_[0];
+    const size_t ny_f = hit_file_dims_[1];
+    const size_t nz_f = hit_file_dims_[2];
+
+    // number of elements along each direction in mesh
+    // Nalu is node-centered
+    const size_t nx_m = hit_mesh_dims_[0];
+    const size_t ny_m = hit_mesh_dims_[1];
+
+    const size_t plane_ofst = (nx_m + 1) * (ny_m + 1);
+    const size_t x_ofst     = (nx_m + 1);
 
     size_t orig_nd = nodeid;
+    const size_t iz = ((nodeid - 1) / plane_ofst) % nz_f;
 
-    const size_t iz = ((nodeid - 1) / nxny) % nz;
+    nodeid = (nodeid - 1) % plane_ofst;
+    const size_t iy = (nodeid / x_ofst) % ny_f;
+    const size_t ix = nodeid % x_ofst % nx_f;
 
-    nodeid = (nodeid - 1) % nxny;
-    const size_t iy = (nodeid / nx1) % ny;
-    const size_t ix = nodeid % nx1 % nx;
-
-    size_t ind = (iz * (nx * ny) + iy * nx + ix);
+    size_t ind = iz * (nx_f * ny_f) + iy * nx_f + ix;
 
     return ind;
 }

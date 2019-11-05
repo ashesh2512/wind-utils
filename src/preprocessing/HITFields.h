@@ -51,6 +51,7 @@ private:
 
     std::vector<double> mean_vel_{0.0, 0.0, 0.0};
 
+    std::vector<int> hit_file_dims_{0, 0, 0};
     std::vector<int> hit_mesh_dims_{0, 0, 0};
 
     std::string hit_filename_;
